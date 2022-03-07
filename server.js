@@ -20,9 +20,37 @@ const db = mysql.createConnection(
     console.log('Connected to the election database')
 );
 
-//Let's query the database to test the connection.
-db.query(`SELECT * FROM candidates`, (err, rows) => {
-    console.log(rows);
+//Connect to the DATABASE candidates. Get all the candidates information
+// db.query(`SELECT * FROM candidates`, (err, rows) => {
+//     console.log(rows);
+// });
+
+// Query a single candidate information.
+// db.query(`SELECT * FROM candidates WHERE id = 1`, (err, row) => {
+//             if (err) {
+//                 console.log(err);
+//             }        
+//             console.log(row);
+//         });
+
+//Delete a candidate
+// db.query(`DELETE FROM candidates WHERE id = 1`, (err, result) => {
+//     if (err) {
+//         console.log(err)
+//     }
+//     console.log(result)
+// })
+
+//Create a candidate
+const sql = `INSERT INTO candidates (id, first_name, last_name, industry_connected)
+            VALUES(?,?,?,?)`;
+const params = [1, "Ronald", "Fairbank", 1];            
+
+db.query(sql, params, (err, result) => {
+    if(err) {
+        console.log(err);
+    }
+    console.log(result);
 });
 
 //Default response for any other request (Not Found)

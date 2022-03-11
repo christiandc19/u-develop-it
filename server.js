@@ -1,6 +1,7 @@
 const mysql = require("mysql2");
 const express = require("express");
-const inputCheck =  require('./utils/inputCheck')
+const inputCheck =  require('./utils/inputCheck');
+const { param } = require("express/lib/request");
 
 const PORT = process.env.PORT || 3001;
 const app = express();
@@ -22,10 +23,14 @@ const db = mysql.createConnection(
 );
 
 // QUERY ALL THE CANDIDATE'S INFORMATION
-app.get('/api/candidates', (req, res) => {  // /api/candidates is the API endpoint
-    const sql = `SELECT * FROM candidates`;  // The SQL statement "SELECT * FROM candidates" is assigned to sql variable.
+app.get('/api/candidates', (req, res) => {  // api/candidates is the API endpoint
+    const sql = `SELECT candidates.*, parties.name 
+                AS party_name 
+                FROM candidates 
+                LEFT JOIN parties 
+                ON candidates.party_id = parties.id`;  // The SQL statement "SELECT * FROM candidates" is assigned to sql variable.
 
-db.query(`SELECT * FROM candidates`, (err, rows) => {
+db.query(sql, (err, rows) => {
     if(err) {
         res.status(500).json({error: err.message}); // Instead of console logging the error, we'll send a status code 500 and place the error message within a JSON object.
         // The 500 status code indicates a server error—different than a 404, which indicates a user request error.
@@ -40,7 +45,12 @@ db.query(`SELECT * FROM candidates`, (err, rows) => {
 
 // QUERY A SINGLE CANDIDATE.
 app.get('/api/candidate/:id', (req, res) => {   // Here, we're using the get() route method again. This time, the endpoint has a route parameter that will hold the value of the id to specify which candidate we'll select from the database.
-    const sql = `SELECT * FROM candidates WHERE id = ?`;
+    const sql = `SELECT candidates.*, parties.name 
+                AS party_name 
+                FROM candidates 
+                LEFT JOIN parties 
+                ON candidates.party_id = parties.id 
+                WHERE candidates.id = ?`;
     const params = [req.params.id];
 
 db.query(sql, params, (err, row) => {  // In the database call, we'll assign the captured value populated in the req.params object wiht the key id to params.
@@ -55,6 +65,52 @@ db.query(sql, params, (err, row) => {  // In the database call, we'll assign the
         });
     })
 
+
+app.get('/api/parties', (req, res) => {
+  const sql = `SELECT * FROM parties`;
+
+  db.query(sql, (err, rows) => {
+    if (err) {
+      res.status(500).json({error: err.message});
+      return;
+    }
+    res.json({
+      message: "Success",
+      data: rows
+    });
+  });
+});
+
+
+app.get('/api/parties', (req, res) => {
+  const sql = `SELECT * FROM parties`;
+  db.query(sql, (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json({
+      message: 'success',
+      data: rows
+    });
+  });
+});
+
+app.get('/api/party/:id', (req, res) => {
+  const sql = `SELECT * FROM parties WHERE id = ?`;
+  const params = [req.params.id];
+  db.query(sql, params, (err, row) => {
+    if (err) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    res.json({
+      message: 'success',
+      data: row
+    });
+  });
+});
+
 // DELETE A CANDIDATE
 app.delete('/api/candidate/:id', (req, res) => {
     const sql = `DELETE FROM candidates WHERE id = ?`;
@@ -66,6 +122,27 @@ app.delete('/api/candidate/:id', (req, res) => {
       } else if (!result.affectedRows) { // If there are no affectedRows as a result of the delete query, that means that there was no candidate by that id. 
         res.json({
           message: 'Candidate not found'
+        });
+      } else {
+        res.json({
+          message: 'deleted',
+          changes: result.affectedRows,
+          id: req.params.id
+        });
+      }
+    });
+  });
+
+  app.delete('/api/party/:id', (req, res) => {
+    const sql = `DELETE FROM parties WHERE id = ?`;
+    const params = [req.params.id];
+    db.query(sql, params, (err, result) => {
+      if (err) {
+        res.status(400).json({ error: res.message });
+        // checks if anything was deleted
+      } else if (!result.affectedRows) {
+        res.json({
+          message: 'Party not found'
         });
       } else {
         res.json({
@@ -108,6 +185,35 @@ db.query(sql, params, (err, result) => {
     // This inputCheck module was provided by a helpful U Develop It member. 
     // We'll use this module to verify that user info in the request can create a candidate.
 
+
+  // UPDATE A CANDIDATE'S PARTY
+  app.put('/api/candidate/:id', (req, res) => {
+    const errors = inputCheck(req.body, 'party_id');
+
+    if (errors) {
+  res.status(400).json({ error: errors });
+  return;
+}
+    const sql = `UPDATE candidates SET party_id = ?
+                WHERE id = ?`;
+    const params = [req.body.party_id, req.params.id];
+    db.query(sql, params, (err, result) => {
+      if (err) {
+        res.status(400).json({error: err.message});
+        // CHECK IF A RECORD WAS FOUND
+      } else if (!result.affectedRows) {
+        res.json({
+          message: "Candidate not found"
+        });
+      } else {
+        res.json({
+          message: "Success",
+          data: req.body,
+          changes: result.affectedRows
+        });
+      }
+    });
+  });
 
 // DEFAULT RESPONSE FOR ANY OTHER REQUESTS (Not Found)
 app.use((req, res) => {
